@@ -51,7 +51,25 @@ A high-performance, real-time "Smart City" monitoring dashboard for Zlín, Czech
 - Node.js (v18+)
 - Python 3.x
 
-### Setup
+### ⚡ Quick Start (Recommended)
+Run the entire stack with a single command from the project root:
+
+**Windows (PowerShell):**
+```powershell
+.\start-all.ps1
+```
+
+**Linux / Mac / Git Bash:**
+```bash
+chmod +x start-all.sh
+./start-all.sh
+```
+
+---
+
+### 🛠️ Manual Setup
+If you prefer to run components individually:
+
 1. **Start the API:**
    ```bash
    cd ZlinSmartCity.Api
