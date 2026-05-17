@@ -13,6 +13,23 @@ builder.Services.AddCors(options =>
     });
 });
 
+var parkingLots = new ConcurrentDictionary<string, ParkingLot>();
+var trafficEvents = new ConcurrentDictionary<string, TrafficEvent>();
+var transitVehicles = new ConcurrentDictionary<string, TransitVehicle>();
+var chargingStations = new ConcurrentDictionary<string, ChargingStation>();
+var busStops = new ConcurrentDictionary<string, BusStop>();
+var landmarks = new ConcurrentDictionary<string, Landmark>();
+var alerts = new ConcurrentList<EmergencyAlert>();
+
+builder.Services.AddSingleton(parkingLots);
+builder.Services.AddSingleton(trafficEvents);
+builder.Services.AddSingleton(transitVehicles);
+builder.Services.AddSingleton(chargingStations);
+builder.Services.AddSingleton(busStops);
+builder.Services.AddSingleton(landmarks);
+builder.Services.AddSingleton(alerts);
+builder.Services.AddHostedService<DataSimulationService>();
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -21,14 +38,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors();
-
-var parkingLots = new ConcurrentDictionary<string, ParkingLot>();
-var trafficEvents = new ConcurrentDictionary<string, TrafficEvent>();
-var transitVehicles = new ConcurrentDictionary<string, TransitVehicle>();
-var chargingStations = new ConcurrentDictionary<string, ChargingStation>();
-var busStops = new ConcurrentDictionary<string, BusStop>();
-var landmarks = new ConcurrentDictionary<string, Landmark>();
-var alerts = new ConcurrentList<EmergencyAlert>();
 
 // Initialize Landmarks
 var initialLandmarks = new[]
@@ -73,6 +82,15 @@ var initialChargers = new[]
     new ChargingStation { Id = "ev-3", Name = "Namesti Miru EV", Latitude = 49.2261, Longitude = 17.6661, TotalSpots = 2, OccupiedSpots = 2, ConnectorType = "Type 2" }
 };
 foreach (var ev in initialChargers) chargingStations.TryAdd(ev.Id, ev);
+
+// Initialize Transit Vehicles
+var initialVehicles = new[]
+{
+    new TransitVehicle { Id = "bus-1", Line = "1", Latitude = 49.2230, Longitude = 17.6620, Destination = "Paseky", DelayMinutes = 0 },
+    new TransitVehicle { Id = "trolley-2", Line = "2", Latitude = 49.2260, Longitude = 17.6680, Destination = "Bartošova čtvrť", DelayMinutes = 2 },
+    new TransitVehicle { Id = "bus-8", Line = "8", Latitude = 49.2100, Longitude = 17.5950, Destination = "Jižní Svahy", DelayMinutes = 5 }
+};
+foreach (var v in initialVehicles) transitVehicles.TryAdd(v.Id, v);
 
 app.MapGet("/api/city/all", () => new {
     parking = parkingLots.Values,
@@ -139,4 +157,111 @@ public class ConcurrentList<T> {
     private readonly object _lock = new object();
     public void Add(T item) { lock(_lock) Items.Add(item); }
     public int Count { get { lock(_lock) return Items.Count; } }
+}
+
+public class DataSimulationService : BackgroundService
+{
+    private readonly ConcurrentDictionary<string, ParkingLot> _parkingLots;
+    private readonly ConcurrentDictionary<string, ChargingStation> _chargingStations;
+    private readonly ConcurrentDictionary<string, TransitVehicle> _transitVehicles;
+    private readonly ConcurrentDictionary<string, TrafficEvent> _trafficEvents;
+    private readonly ConcurrentList<EmergencyAlert> _alerts;
+    private readonly Random _random = new Random();
+
+    public DataSimulationService(
+        ConcurrentDictionary<string, ParkingLot> parkingLots,
+        ConcurrentDictionary<string, ChargingStation> chargingStations,
+        ConcurrentDictionary<string, TransitVehicle> transitVehicles,
+        ConcurrentDictionary<string, TrafficEvent> trafficEvents,
+        ConcurrentList<EmergencyAlert> alerts)
+    {
+        _parkingLots = parkingLots;
+        _chargingStations = chargingStations;
+        _transitVehicles = transitVehicles;
+        _trafficEvents = trafficEvents;
+        _alerts = alerts;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            // Simulate Parking Updates
+            foreach (var lot in _parkingLots.Values)
+            {
+                var change = _random.Next(-2, 3); // -2 to 2
+                lot.FreeSpaces = Math.Clamp(lot.FreeSpaces + change, 0, lot.TotalCapacity);
+                lot.LastUpdated = DateTime.UtcNow;
+            }
+
+            // Simulate EV Charging Station Updates
+            foreach (var station in _chargingStations.Values)
+            {
+                if (_random.NextDouble() > 0.7) // 30% chance to change
+                {
+                    var change = _random.Next(-1, 2);
+                    station.OccupiedSpots = Math.Clamp(station.OccupiedSpots + change, 0, station.TotalSpots);
+                }
+            }
+
+            // Simulate Transit Vehicle Movement (very basic)
+            foreach (var vehicle in _transitVehicles.Values)
+            {
+                vehicle.Latitude += (_random.NextDouble() - 0.5) * 0.0005;
+                vehicle.Longitude += (_random.NextDouble() - 0.5) * 0.0005;
+                if (_random.NextDouble() > 0.9)
+                {
+                    vehicle.DelayMinutes = Math.Clamp(vehicle.DelayMinutes + _random.Next(-1, 2), 0, 15);
+                }
+            }
+
+            // Simulate Random Traffic Events
+            if (_random.NextDouble() > 0.9) // 10% chance each 5s to add an event
+            {
+                var eventId = Guid.NewGuid().ToString();
+                var types = Enum.GetValues<TrafficEventType>();
+                var type = types[_random.Next(types.Length)];
+                var descriptions = new[] { "Heavy traffic near center", "Police check at Malenovice", "Road work on Školní", "Minor accident" };
+                
+                var trafficEvent = new TrafficEvent
+                {
+                    Id = eventId,
+                    Type = type,
+                    Latitude = 49.22 + (_random.NextDouble() - 0.5) * 0.05,
+                    Longitude = 17.66 + (_random.NextDouble() - 0.5) * 0.05,
+                    Description = descriptions[_random.Next(descriptions.Length)],
+                    Severity = _random.Next(1, 4),
+                    CreatedAt = DateTime.UtcNow
+                };
+                _trafficEvents.TryAdd(eventId, trafficEvent);
+
+                // Cleanup old events (older than 10 mins)
+                foreach (var oldEvent in _trafficEvents.Values.Where(e => e.CreatedAt < DateTime.UtcNow.AddMinutes(-10)).ToList())
+                    _trafficEvents.TryRemove(oldEvent.Id, out _);
+            }
+
+            // Simulate Random Emergency Alerts
+            if (_random.NextDouble() > 0.95) // 5% chance each 5s
+            {
+                var severities = new[] { "Info", "Warning", "Critical" };
+                var messages = new[] { "High pollution level detected", "Strong winds expected", "Water main break in Malenovice", "Public transport delay alert" };
+                
+                var alert = new EmergencyAlert
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Severity = severities[_random.Next(severities.Length)],
+                    Message = messages[_random.Next(messages.Length)],
+                    CreatedAt = DateTime.UtcNow
+                };
+                _alerts.Add(alert);
+                
+                // Keep only last 10
+                lock(_alerts) {
+                    while (_alerts.Count > 10) _alerts.Items.RemoveAt(0);
+                }
+            }
+
+            await Task.Delay(5000, stoppingToken); // Update every 5 seconds
+        }
+    }
 }
