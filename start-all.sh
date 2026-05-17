@@ -1,37 +1,41 @@
 #!/bin/bash
 
-# Function to handle exit and kill all background processes
+# Zlin Smart City - Full Stack Starter
+# This script launches the API, Simulator, and Web Dashboard simultaneously.
+
+# Get the directory where the script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPT_DIR"
+
+# Function to handle shutdown
 cleanup() {
-    echo ""
-    echo "Stopping all services..."
-    # Kill all background jobs started by this script
+    echo -e "\n\033[1;33mStopping all services...\033[0m"
+    # Kill background jobs
     kill $(jobs -p) 2>/dev/null
     exit
 }
 
-# Trap Ctrl+C (SIGINT) and other termination signals
+# Trap termination signals
 trap cleanup SIGINT SIGTERM EXIT
 
-echo "🚀 Starting Zlin Smart City application..."
+echo -e "\033[1;36m?? Starting Zlin Smart City Hub...\033[0m"
 
-# 1. Start API
-echo "📡 Starting API (http://localhost:5214)..."
-(cd ZlinSmartCity.Api && dotnet run) &
+# 1. Start API (.NET)
+echo -e "\033[0;90m?? Starting API (http://localhost:5214)...\033[0m"
+cd "$SCRIPT_DIR/ZlinSmartCity.Api" && dotnet run &
 
-# 2. Start Simulator
-echo "🤖 Starting Simulator..."
-(cd ZlinSmartCity.Simulator && python simulator.py) &
+# 2. Start Simulator (Python)
+echo -e "\033[0;90m?? Starting Simulator...\033[0m"
+cd "$SCRIPT_DIR/ZlinSmartCity.Simulator" && python simulator.py &
 
-# 3. Start Web Frontend
-echo "💻 Starting Web Frontend (Vite)..."
-(cd ZlinSmartCity.Web && npm run dev) &
+# 3. Start Web Dashboard (Vite)
+echo -e "\033[0;90m?? Starting Web Dashboard (http://localhost:5173)...\033[0m"
+cd "$SCRIPT_DIR/ZlinSmartCity.Web" && npm run dev &
 
-echo ""
-echo "✅ All services are starting up!"
-echo "   - API: http://localhost:5214"
-echo "   - Web: http://localhost:5173"
-echo ""
-echo "Press Ctrl+C to stop everything."
+echo -e "\n\033[1;32m? All services are launching!\033[0m"
+echo -e "   - API: \033[4mhttp://localhost:5214\033[0m"
+echo -e "   - Web: \033[4mhttp://localhost:5173\033[0m"
+echo -e "\n\033[1;37mPress Ctrl+C to stop everything.\033[0m"
 
-# Wait for background processes to keep the script running
+# Wait for all background processes
 wait

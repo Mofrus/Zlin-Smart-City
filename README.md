@@ -52,14 +52,8 @@ A high-performance, real-time "Smart City" monitoring dashboard for Zlín, Czech
 - Python 3.x
 
 ### ⚡ Quick Start (Recommended)
-Run the entire stack with a single command from the project root:
+Run the entire stack with a single command from the project root (requires **Git Bash** on Windows):
 
-**Windows (PowerShell):**
-```powershell
-.\start-all.ps1
-```
-
-**Linux / Mac / Git Bash:**
 ```bash
 chmod +x start-all.sh
 ./start-all.sh
