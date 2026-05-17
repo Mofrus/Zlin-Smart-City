@@ -1,4 +1,4 @@
-Write-Host "🚀 Starting Zlin Smart City application..." -ForegroundColor Cyan
+Write-Host "Starting Zlin Smart City application..." -ForegroundColor Cyan
 
 # Function to stop all background processes
 function Stop-AllProcesses {
@@ -13,21 +13,24 @@ function Stop-AllProcesses {
 $host.UI.RawUI.FlushInputBuffer()
 trap { Stop-AllProcesses }
 
+$scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
+Set-Location $scriptRoot
+
 # 1. Start API
-Write-Host "📡 Starting API (http://localhost:5214)..." -ForegroundColor Gray
-$apiProcess = Start-Process dotnet -ArgumentList "run", "--project", "ZlinSmartCity.Api/ZlinSmartCity.Api.csproj" -PassThru -NoNewWindow
+Write-Host "Starting API (http://localhost:5214)..." -ForegroundColor Gray
+$apiProcess = Start-Process dotnet -ArgumentList "run", "--project", "$scriptRoot/ZlinSmartCity.Api/ZlinSmartCity.Api.csproj" -PassThru -NoNewWindow
 
 # 2. Start Simulator
-Write-Host "🤖 Starting Simulator..." -ForegroundColor Gray
-$simProcess = Start-Process python -ArgumentList "ZlinSmartCity.Simulator/simulator.py" -PassThru -NoNewWindow
+Write-Host "Starting Simulator..." -ForegroundColor Gray
+$simProcess = Start-Process python -ArgumentList "$scriptRoot/ZlinSmartCity.Simulator/simulator.py" -PassThru -NoNewWindow
 
 # 3. Start Web Frontend
-Write-Host "💻 Starting Web Frontend (Vite)..." -ForegroundColor Gray
-Set-Location ZlinSmartCity.Web
+Write-Host "Starting Web Frontend (Vite)..." -ForegroundColor Gray
+Set-Location "$scriptRoot/ZlinSmartCity.Web"
 $webProcess = Start-Process npm -ArgumentList "run", "dev" -PassThru -NoNewWindow
-Set-Location ..
+Set-Location $scriptRoot
 
-Write-Host "`n✅ All services are starting up!" -ForegroundColor Green
+Write-Host "`nAll services are starting up!" -ForegroundColor Green
 Write-Host "   - API: http://localhost:5214"
 Write-Host "   - Web: http://localhost:5173"
 Write-Host "`nPress Ctrl+C to stop everything."
